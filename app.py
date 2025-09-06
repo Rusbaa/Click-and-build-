@@ -547,7 +547,45 @@ def checkout():
     return render_template('checkout.html')
 
 
-
+# View Build
+@app.route('/view_build/<int:build_id>')
+def view_build(build_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get build details
+        cursor.execute("""
+            SELECT Name, C_Date 
+            FROM PC_BUILD 
+            WHERE B_ID = %s AND U_ID = %s
+        """, (build_id, session['user_id']))
+        build = cursor.fetchone()
+        
+        if not build:
+            flash('Build not found!', 'error')
+            return redirect(url_for('dashboard'))
+        
+        # Get components in the build
+        cursor.execute("""
+            SELECT C_ID, Name, Price, Brand, type
+            FROM Components 
+            WHERE B_ID = %s
+            ORDER BY FIELD(type, 'CPU', 'MOBO', 'GPU', 'RAM', 'STORAGE', 'PSU', 'CASE')
+        """, (build_id,))
+        components = cursor.fetchall()
+        
+        return render_template('view_build.html', build=build, components=components, build_id=build_id)
+        
+    except mysql.connector.Error as e:
+        flash(f'Error loading build: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
+    finally:
+        cursor.close()
+        conn.close()
 
 
 
