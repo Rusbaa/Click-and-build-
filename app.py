@@ -276,6 +276,40 @@ def delete_from_cart(component_id):
     return redirect(url_for('cart'))
 
 
+# View Cart
+@app.route('/cart')
+def cart():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT c.C_ID, c.Name, c.Price, c.Brand, cart.Quantity, cart.ID as Cart_ID,
+                   COALESCE(d.Amount, 0) as Discount, c.type
+            FROM Components c
+            JOIN Cart cart ON c.Cart_ID = cart.ID
+            LEFT JOIN Discount d ON c.C_ID = d.C_ID 
+                AND CURDATE() BETWEEN d.Start AND d.End
+            WHERE c.U_ID = %s
+            ORDER BY c.type
+        """, (session['user_id'],))
+        
+        cart_items = cursor.fetchall()
+        
+        # Calculate total
+        total = sum((item[2] - item[6]) * item[4] for item in cart_items)
+        
+        return render_template('cart.html', cart_items=cart_items, total=total)
+        
+    except mysql.connector.Error as e:
+        flash(f'Error loading cart: {str(e)}', 'error')
+        return render_template('cart.html', cart_items=[], total=0)
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # Checkout
@@ -343,44 +377,6 @@ def checkout():
             conn.close()
     
     return render_template('checkout.html')
-
-
-# View Cart
-@app.route('/cart')
-def cart():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT c.C_ID, c.Name, c.Price, c.Brand, cart.Quantity, cart.ID as Cart_ID,
-                   COALESCE(d.Amount, 0) as Discount, c.type
-            FROM Components c
-            JOIN Cart cart ON c.Cart_ID = cart.ID
-            LEFT JOIN Discount d ON c.C_ID = d.C_ID 
-                AND CURDATE() BETWEEN d.Start AND d.End
-            WHERE c.U_ID = %s
-            ORDER BY c.type
-        """, (session['user_id'],))
-        
-        cart_items = cursor.fetchall()
-        
-        # Calculate total
-        total = sum((item[2] - item[6]) * item[4] for item in cart_items)
-        
-        return render_template('cart.html', cart_items=cart_items, total=total)
-        
-    except mysql.connector.Error as e:
-        flash(f'Error loading cart: {str(e)}', 'error')
-        return render_template('cart.html', cart_items=[], total=0)
-    finally:
-        cursor.close()
-        conn.close()
-
-
 
 
 
