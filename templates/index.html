@@ -1,0 +1,53 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold mb-4">Build Your Dream PC</h1>
+        <p class="lead mb-4">Choose from thousands of components and create the perfect custom PC build</p>
+        <div class="d-flex gap-3 justify-content-center">
+            <a href="{{ url_for('components') }}" class="btn btn-light btn-lg">
+                <i class="fas fa-search"></i> Browse Components
+            </a>
+            {% if not session.user_id %}
+            <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg">
+                <i class="fas fa-user-plus"></i> Get Started
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-microchip fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Premium Components</h5>
+                    <p class="card-text">Choose from top brands and latest technology components for your build.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-tools fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Easy PC Builder</h5>
+                    <p class="card-text">Our intuitive interface makes it easy to build and customize your PC.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-shipping-fast fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Fast Delivery</h5>
+                    <p class="card-text">Quick and secure delivery with multiple payment options available.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}View Build - {{ build[0] }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>{{ build[0] }}</h2>
+            <p class="text-muted">Created on: {{ build[1] }}</p>
+            
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4>Components</h4>
+                    <a href="{{ url_for('add_build_to_cart', build_id=build_id) }}" class="btn btn-primary">
+                        Add All to Cart
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Name</th>
+                                    <th>Brand</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for component in components %}
+                                <tr>
+                                    <td><span class="badge bg-secondary">{{ component[4] }}</span></td>
+                                    <td>{{ component[1] }}</td>
+                                    <td>{{ component[3] }}</td>
+                                    <td>${{ "%.2f"|format(component[2]) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td><strong>${{ "%.2f"|format(components|sum(attribute='2')) }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
