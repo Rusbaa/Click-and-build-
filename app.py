@@ -588,6 +588,64 @@ def view_build(build_id):
         conn.close()
 
 
+# Add Build to Cart
+@app.route('/add_build_to_cart/<int:build_id>')
+def add_build_to_cart(build_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get all components in the build
+        cursor.execute("""
+            SELECT C_ID, Name
+            FROM Components 
+            WHERE B_ID = %s
+        """, (build_id,))
+        components = cursor.fetchall()
+        
+        # Add each component to cart
+        for component in components:
+            # Create cart entry
+            cursor.execute("""
+                INSERT INTO Cart (Product, C_Date, Quantity) 
+                VALUES (%s, %s, 1)
+            """, (component[1], date.today()))
+            
+            cart_id = cursor.lastrowid
+            
+            # Remove from build and add to cart
+            cursor.execute("""
+                UPDATE Components 
+                SET Cart_ID = %s, B_ID = NULL, U_ID = %s 
+                WHERE C_ID = %s
+            """, (cart_id, session['user_id'], component[0]))
+        
+        conn.commit()
+        flash('Build added to cart successfully!', 'success')
+        
+    except mysql.connector.Error as e:
+        flash(f'Error adding build to cart: {str(e)}', 'error')
+    finally:
+        cursor.close()
+        conn.close()
+    
+    return redirect(url_for('cart'))
+
+
+
+# Order Confirmation
+@app.route('/order_confirmation')
+def order_confirmation():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('order_confirmation.html')
+
+
+
+
 
 # Reviews
 @app.route('/reviews')
