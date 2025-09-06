@@ -1,0 +1,236 @@
+
+{% extends "base.html" %}
+
+{% block title %}Components - Click & Build{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-microchip"></i> Browse Components</h2>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control" name="search" 
+                                   placeholder="Search components..." value="{{ request.args.get('search', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <select name="sort" class="form-select">
+                                <option value="name" {{ 'selected' if request.args.get('sort') == 'name' }}>Sort by Name</option>
+                                <option value="price_low" {{ 'selected' if request.args.get('sort') == 'price_low' }}>Price: Low to High</option>
+                                <option value="price_high" {{ 'selected' if request.args.get('sort') == 'price_high' }}>Price: High to Low</option>
+                                <option value="brand" {{ 'selected' if request.args.get('sort') == 'brand' }}>Sort by Brand</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search"></i> Filter
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Components by Category -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-pills mb-4 justify-content-center" id="component-tabs">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#cpu">CPU</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#mobo">Motherboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#gpu">GPU</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#ram">RAM</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#storage">Storage</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#psu">PSU</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#case">Case</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    {% set categories = [
+        {'id': 'cpu', 'name': 'CPU', 'icon': 'microchip', 'desc': 'Central Processing Units'},
+        {'id': 'mobo', 'name': 'MOBO', 'icon': 'server', 'desc': 'Motherboards'},
+        {'id': 'gpu', 'name': 'GPU', 'icon': 'tv', 'desc': 'Graphics Cards'},
+        {'id': 'ram', 'name': 'RAM', 'icon': 'memory', 'desc': 'Memory Modules'},
+        {'id': 'storage', 'name': 'STORAGE', 'icon': 'hdd', 'desc': 'Storage Devices'},
+        {'id': 'psu', 'name': 'PSU', 'icon': 'plug', 'desc': 'Power Supply Units'},
+        {'id': 'case', 'name': 'CASE', 'icon': 'box', 'desc': 'Computer Cases'}
+    ] %}
+    
+    {% for category in categories %}
+        {% set category_components = [] %}
+        {% for component in components if component[6] == category.name %}
+            {% set _ = category_components.append(component) %}
+        {% endfor %}
+
+        <div class="category-section mb-4" id="{{ category.id }}" {% if not loop.first %}style="display: none;"{% endif %}>
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-{{ category.icon }}"></i> {{ category.desc }}</h4>
+                </div>
+                <div class="card-body">
+                    {% if category_components %}
+                    <div class="row">
+                        {% for component in category_components %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100 component-card">
+                                <div class="card-header bg-light">
+                                    <h5 class="card-title mb-0">{{ component[1] }}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">
+                                        <strong>Brand:</strong> {{ component[3] }}<br>
+                                        <strong>Stock:</strong> 
+                                        {% if component[4] and component[4] > 0 %}
+                                        <span class="text-success">{{ component[4] }} available</span>
+                                        {% else %}
+                                        <span class="text-danger">Out of Stock</span>
+                                        {% endif %}<br>
+                                        {% if component[5] > 0 %}
+                                        <span class="badge bg-success">{{ component[5] }}% Discount</span>
+                                        {% endif %}
+                                        {% if component[7] %}
+                                        <br><strong>Supports:</strong> {{ component[7] }}
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="card-footer d-flex justify-content-between align-items-center bg-light">
+                                    <div>
+                                        {% if component[5] > 0 %}
+                                        <span class="text-muted text-decoration-line-through">${{ "%.2f"|format(component[2]) }}</span>
+                                        <strong class="text-success">${{ "%.2f"|format(component[2] - component[5]) }}</strong>
+                                        {% else %}
+                                        <strong class="text-primary">${{ "%.2f"|format(component[2]) }}</strong>
+                                        {% endif %}
+                                    </div>
+                                    {% if session.user_id and component[4] and component[4] > 0 %}
+                                    <a href="{{ url_for('add_to_cart', component_id=component[0]) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-cart-plus"></i> Add to Cart
+                                    </a>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-secondary" disabled>
+                                        {% if not session.user_id %}Login Required{% else %}Out of Stock{% endif %}
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No {{ category.desc }} currently available.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+
+    {% if not components %}
+    <div class="row">
+        <div class="col-12 text-center py-5">
+            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No components found. Try adjusting your search criteria.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tabs = document.querySelectorAll('#component-tabs .nav-link');
+    const sections = document.querySelectorAll('.category-section');
+
+    // Handle tab clicks
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Remove active class from all tabs
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            // Add active class to clicked tab
+            this.classList.add('active');
+            
+            // Hide all sections
+            sections.forEach(section => section.style.display = 'none');
+            
+            // Show the selected section
+            const targetId = this.getAttribute('href').substring(1);
+            document.getElementById(targetId).style.display = 'block';
+        });
+    });
+
+    // Add smooth hover effect to component cards
+    const cards = document.querySelectorAll('.component-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.3s ease';
+            this.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = 'none';
+        });
+    });
+});
+</script>
+
+<style>
+.nav-pills .nav-link {
+    color: #333;
+    margin: 0 5px;
+    border-radius: 20px;
+    padding: 8px 20px;
+}
+
+.nav-pills .nav-link.active {
+    background-color: #007bff;
+    color: white;
+}
+
+.component-card {
+    border: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+.component-card:hover {
+    border-color: #007bff;
+}
+
+.category-section {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+</style>
+{% endblock %}

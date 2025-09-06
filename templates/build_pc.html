@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Build PC - Click & Build{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-12">
+            <h2><i class="fas fa-tools"></i> PC Builder</h2>
+            <p class="text-muted">Select components to create your custom PC build</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <form method="POST">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Build Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="build_name" class="form-label">Build Name</label>
+                            <input type="text" class="form-control" id="build_name" name="build_name" 
+                                   placeholder="My Gaming PC" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Select Components</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if components %}
+                            {% set categories = ['CPU', 'MOBO', 'GPU', 'RAM', 'STORAGE', 'PSU', 'CASE'] %}
+                            {% for category in categories %}
+                            <div class="mb-4">
+                                <h5 class="border-bottom pb-2">{{ category }}</h5>
+                                <div class="table-responsive">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Select</th>
+                                                <th>Name</th>
+                                                <th>Brand</th>
+                                                <th>Price</th>
+                                                <th>Socket/Support</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for component in components if component[4] == category %}
+                                            <tr>
+                                                <td>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input component-select" 
+                                                               type="checkbox" 
+                                                               name="components" 
+                                                               value="{{ component[0] }}"
+                                                               data-type="{{ category }}"
+                                                               data-supports="{{ component[5] or '' }}"
+                                                               data-brand="{{ component[3] or '' }}"
+                                                               id="component_{{ component[0] }}">
+                                                    </div>
+                                                </td>
+                                                <td>{{ component[1] }}</td>
+                                                <td>{{ component[3] }}</td>
+                                                <td>${{ "%.2f"|format(component[2]) }}</td>
+                                                <td>{{ component[5] or 'N/A' }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-save"></i> Create Build
+                                </button>
+                                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> Cancel
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                                <p>No available components found.</p>
+                                <a href="{{ url_for('components') }}" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Browse Components
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.component-select');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const type = this.dataset.type;
+            const supports = this.dataset.supports;
+            
+            // Skip multiple selection check for RAM and STORAGE
+            if (type !== 'RAM' && type !== 'STORAGE') {
+                // If checked, uncheck other components of same type
+                if (this.checked) {
+                    checkboxes.forEach(other => {
+                        if (other !== this && other.dataset.type === type) {
+                            other.checked = false;
+                        }
+                    });
+                }
+            }
+            
+            // Check CPU and Motherboard compatibility
+            if (type === 'CPU' || type === 'MOBO') {
+                const cpuChecked = Array.from(checkboxes).find(cb => 
+                    cb.dataset.type === 'CPU' && cb.checked
+                );
+                const moboChecked = Array.from(checkboxes).find(cb => 
+                    cb.dataset.type === 'MOBO' && cb.checked
+                );
+                
+                if (cpuChecked && moboChecked) {
+                    if (cpuChecked.dataset.brand != moboChecked.dataset.supports) {
+                        console.log('Incompatible sockets:', cpuChecked.dataset.supports,"MOBO", moboChecked.dataset.supports);
+                        alert('Warning: CPU socket and motherboard socket are not compatible!');
+                        this.checked = false;
+                    }
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
