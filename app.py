@@ -605,7 +605,7 @@ def add_review():
     
     return redirect(url_for('reviews'))
 
-# Logout
+ # Logout
 @app.route('/logout')
 def logout():
     session.clear()
