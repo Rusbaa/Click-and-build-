@@ -23,6 +23,46 @@ def index():
 
 
 
+
+# Users Dashboard
+@app.route('/dashboard')
+def dashboard():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get user's builds
+        cursor.execute("""
+            SELECT B_ID, Name, C_Date 
+            FROM PC_BUILD 
+            WHERE U_ID = %s 
+            ORDER BY C_Date DESC
+        """, (session['user_id'],))
+        builds = cursor.fetchall()
+        
+        # Get cart items count
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM Cart c 
+            JOIN Components comp ON c.ID = comp.Cart_ID 
+            WHERE comp.U_ID = %s
+        """, (session['user_id'],))
+        cart_count = cursor.fetchone()[0] or 0
+        
+        return render_template('dashboard.html', builds=builds, cart_count=cart_count)
+        
+    except mysql.connector.Error as e:
+        flash(f'Error loading dashboard: {str(e)}', 'error')
+        return render_template('dashboard.html', builds=[], cart_count=0)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
 # Browse Components
 @app.route('/components')
 def components():
@@ -80,7 +120,200 @@ def components():
     finally:
         cursor.close()
         conn.close()
-  
+
+
+
+
+# Add to Cart
+@app.route('/add_to_cart/<int:component_id>')
+def add_to_cart(component_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get component details
+        cursor.execute("SELECT Name, Price FROM Components WHERE C_ID = %s", (component_id,))
+        component = cursor.fetchone()
+        
+        if not component:
+            flash('Component not found!', 'error')
+            return redirect(url_for('components'))
+        
+        # Create cart entry
+        cursor.execute("""
+            INSERT INTO Cart (Product, C_Date, Quantity) 
+            VALUES (%s, %s, 1)
+        """, (component[0], date.today()))
+        
+        cart_id = cursor.lastrowid
+        
+        # Link component to cart
+        cursor.execute("""
+            UPDATE Components 
+            SET Cart_ID = %s, U_ID = %s 
+            WHERE C_ID = %s
+        """, (cart_id, session['user_id'], component_id))
+        
+        conn.commit()
+        flash('Added to cart successfully!', 'success')
+        
+    except mysql.connector.Error as e:
+        flash(f'Error adding to cart: {str(e)}', 'error')
+    finally:
+        cursor.close()
+        conn.close()
+    
+    return redirect(url_for('components'))
+
+# Delete from Cart
+@app.route('/delete_from_cart/<int:component_id>')
+def delete_from_cart(component_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get cart ID for the component
+        cursor.execute("""
+            SELECT Cart_ID FROM Components 
+            WHERE C_ID = %s AND U_ID = %s
+        """, (component_id, session['user_id']))
+        cart_id = cursor.fetchone()
+        
+        if cart_id:
+            # Update component to remove cart reference
+            cursor.execute("""
+                UPDATE Components 
+                SET Cart_ID = NULL 
+                WHERE C_ID = %s AND U_ID = %s
+            """, (component_id, session['user_id']))
+            
+            # Delete cart entry
+            cursor.execute("DELETE FROM Cart WHERE ID = %s", (cart_id[0],))
+            
+            conn.commit()
+            flash('Item removed from cart successfully!', 'success')
+        
+    except mysql.connector.Error as e:
+        flash(f'Error removing item from cart: {str(e)}', 'error')
+    finally:
+        cursor.close()
+        conn.close()
+    
+    return redirect(url_for('cart'))
+
+
+
+
+# Checkout
+@app.route('/checkout', methods=['GET', 'POST'])
+def checkout():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        payment_method = request.form['payment_method']
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Create payment record
+            payment_data = {
+                'COD': payment_method == 'cod',
+                'offlineFlag': payment_method in ['cod'],
+                'Baksh': payment_method == 'bkash',
+                'Visa': payment_method == 'visa',
+                'Nogod': payment_method == 'nogod',
+                'onlineFlag': payment_method in ['bkash', 'visa', 'nogod']
+            }
+            
+            cursor.execute("""
+                INSERT INTO Payment (COD, offlineFlag, Baksh, Visa, Nogod, onlineFlag)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, tuple(payment_data.values()))
+            
+            payment_id = cursor.lastrowid
+            
+            # Get cart items for this user
+            cursor.execute("""
+                SELECT cart.ID 
+                FROM Cart cart
+                JOIN Components c ON cart.ID = c.Cart_ID
+                WHERE c.U_ID = %s
+            """, (session['user_id'],))
+            
+            cart_ids = cursor.fetchall()
+            
+            # Create orders
+            for (cart_id,) in cart_ids:
+                cursor.execute("""
+                    INSERT INTO Orders (U_ID, P_ID, Cart_ID)
+                    VALUES (%s, %s, %s)
+                """, (session['user_id'], payment_id, cart_id))
+            
+            # Clear cart associations
+            cursor.execute("""
+                UPDATE Components 
+                SET Cart_ID = NULL 
+                WHERE U_ID = %s AND Cart_ID IS NOT NULL
+            """, (session['user_id'],))
+            
+            conn.commit()
+            flash('Order placed successfully!', 'success')
+            return redirect(url_for('order_confirmation'))
+            
+        except mysql.connector.Error as e:
+            flash(f'Error processing order: {str(e)}', 'error')
+        finally:
+            cursor.close()
+            conn.close()
+    
+    return render_template('checkout.html')
+
+
+# View Cart
+@app.route('/cart')
+def cart():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT c.C_ID, c.Name, c.Price, c.Brand, cart.Quantity, cart.ID as Cart_ID,
+                   COALESCE(d.Amount, 0) as Discount, c.type
+            FROM Components c
+            JOIN Cart cart ON c.Cart_ID = cart.ID
+            LEFT JOIN Discount d ON c.C_ID = d.C_ID 
+                AND CURDATE() BETWEEN d.Start AND d.End
+            WHERE c.U_ID = %s
+            ORDER BY c.type
+        """, (session['user_id'],))
+        
+        cart_items = cursor.fetchall()
+        
+        # Calculate total
+        total = sum((item[2] - item[6]) * item[4] for item in cart_items)
+        
+        return render_template('cart.html', cart_items=cart_items, total=total)
+        
+    except mysql.connector.Error as e:
+        flash(f'Error loading cart: {str(e)}', 'error')
+        return render_template('cart.html', cart_items=[], total=0)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
 
 
 # PC Builder
