@@ -21,6 +21,74 @@ def get_db_connection():
 def index():
     return render_template('index.html')
 
+# Users Registration
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
+        address = request.form.get('address', '')
+        
+        # Hash password
+        hashed_password = generate_password_hash(password)
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Check if email already exists
+            cursor.execute("SELECT * FROM Users WHERE Email = %s", (email,))
+            if cursor.fetchone():
+                flash('Email already exists!', 'error')
+                return render_template('register.html')
+            
+            # Insert new user
+            cursor.execute(
+                "INSERT INTO Users (Name, Email, Password, Address) VALUES (%s, %s, %s, %s)",
+                (name, email, hashed_password, address)
+            )
+            conn.commit()
+            flash('Registration successful! Please login.', 'success')
+            return redirect(url_for('login'))
+            
+        except mysql.connector.Error as e:
+            flash(f'Registration failed: {str(e)}', 'error')
+        finally:
+            cursor.close()
+            conn.close()
+    
+    return render_template('register.html')
+
+# Users Login
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT U_ID, Name, Password FROM Users WHERE Email = %s", (email,))
+            user = cursor.fetchone()
+            
+            if user and check_password_hash(user[2], password):
+                session['user_id'] = user[0]
+                session['user_name'] = user[1]
+                flash('Login successful!', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                flash('Invalid email or password!', 'error')
+                
+        except mysql.connector.Error as e:
+            flash(f'Login failed: {str(e)}', 'error')
+        finally:
+            cursor.close()
+            conn.close()
+    
+    return render_template('login.html')
+
 
 
 
@@ -477,4 +545,76 @@ def checkout():
             conn.close()
     
     return render_template('checkout.html')
+
+
+
+
+
+
+# Reviews
+@app.route('/reviews')
+def reviews():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT r.Comment, r.Rating, u.Name, r.Rev_ID
+            FROM Review r
+            JOIN Users u ON r.U_ID = u.U_ID
+            ORDER BY r.Rev_ID DESC
+            LIMIT 10
+        """)
+        reviews = cursor.fetchall()
+        
+        return render_template('reviews.html', reviews=reviews)
+        
+    except mysql.connector.Error as e:
+        flash(f'Error loading reviews: {str(e)}', 'error')
+        return render_template('reviews.html', reviews=[])
+    finally:
+        cursor.close()
+        conn.close()
+
+# Add Review
+@app.route('/add_review', methods=['POST'])
+def add_review():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    comment = request.form['comment']
+    rating = int(request.form['rating'])
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            INSERT INTO Review (Comment, Rating, U_ID)
+            VALUES (%s, %s, %s)
+        """, (comment, rating, session['user_id']))
+        
+        conn.commit()
+        flash('Review added successfully!', 'success')
+        
+    except mysql.connector.Error as e:
+        flash(f'Error adding review: {str(e)}', 'error')
+    finally:
+        cursor.close()
+        conn.close()
+    
+    return redirect(url_for('reviews'))
+
+# Logout
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Logged out successfully!', 'success')
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
 
