@@ -39,7 +39,7 @@ It’s built with Flask (Python), MySQL (XAMPP), and a simple front-end to keep 
 + Install **XAMPP** and start **MySQL**
 
 
-+ Create a database <span style="color: green;"> click_build_db </span>
++ Create a database $\\color{blue}{\\text{click_build_db}}$
 
 
 + Import the provided SQL schema 
