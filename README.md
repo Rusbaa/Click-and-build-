@@ -5,12 +5,16 @@
 
 
 
+ <img width="1869" height="849" alt="image" src="https://github.com/user-attachments/assets/34b1d2e1-6974-4648-9e8d-08790e08370b" />
 
 ## Introduction
 ClickBuild is a web application that makes PC building easier and more interactive.
 Users can browse computer parts, check compatibility, create builds, and manage their cart—all in one place.
 It’s built with Flask (Python), MySQL (XAMPP), and a simple front-end to keep things lightweight but functional.
-![Alt text]()
+
+
+
+
 ## Features
 + **User System:**  Register, login, and logout
 
